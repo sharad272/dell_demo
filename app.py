@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 
 from src.agent import ask_agent
 from src.schema_indexer import build_or_refresh_vectorstore
@@ -37,6 +36,6 @@ if st.button("Ask Assistant", type="primary") and question.strip():
     st.subheader("SQL Results")
     rows = output.get("sql_result", [])
     if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        st.dataframe(rows, use_container_width=True)
     else:
         st.info("No rows returned.")

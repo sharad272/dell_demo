@@ -1,6 +1,6 @@
 # Agentic SQL RAG Assistant (LangGraph + Streamlit)
 
-This project builds an agentic SQL chat assistant for SQL Server:
+This project builds an agentic SQL assistant for SQL Server:
 
 - Schema-aware RAG over DB metadata (`INFORMATION_SCHEMA` + extended properties)
 - Direct open-source embeddings via `SentenceTransformer`
@@ -32,13 +32,11 @@ Key variables:
 - `VECTOR_DB_DIR`, `MAX_SQL_ROWS`
 - Optional tracing: `LANGSMITH_TRACING`, `LANGSMITH_ENDPOINT`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`
 
-## 3) Build or refresh schema index
+## 3) Build schema index
 
 ```bash
 python build_schema_index.py
 ```
-
-This fetches SQL Server schema metadata and writes the FAISS index to `VECTOR_DB_DIR`.
 
 ## 4) Run retrieval evaluation
 
@@ -46,23 +44,13 @@ This fetches SQL Server schema metadata and writes the FAISS index to `VECTOR_DB
 python -m eval.evaluate_retrieval
 ```
 
-Prints:
-
-- `Precision@K`
-- `Recall@K`
-- `MRR`
-
-## 5) Start Streamlit frontend
+## 5) Run Streamlit app
 
 ```bash
 streamlit run app.py
 ```
 
-In the app:
-
-1. Click **Refresh DB Schema Index** (optional if already built)
-2. Ask a question about records/tables
-3. Review generated SQL, result rows, and final answer
+The app allows you to refresh schema index, ask DB questions, review generated SQL, and inspect results.
 
 ## Run notes
 
