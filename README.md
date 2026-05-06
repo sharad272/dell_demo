@@ -10,6 +10,34 @@ This project builds an agentic SQL assistant for SQL Server:
 - LangGraph pipeline: retrieve schema -> generate SQL -> execute -> answer
 - Retrieval evaluation: Precision@K, Recall@K, MRR
 
+## Architecture Graph
+
+```mermaid
+flowchart TD
+    A[User Message from Streamlit Chat UI] --> B[LangGraph: decide_route]
+    B -->|GENERAL_CHAT| C[general_answer LLM]
+    B -->|DB_QUERY| D[retrieve_schema]
+    D --> E[generate_sql]
+    E --> F[execute_sql]
+    F --> G[draft_answer]
+    C --> H[Return Assistant Response]
+    G --> H
+    H --> I[Render in chat_message]
+    G --> J[Show SQL + Results expanders]
+```
+
+### DB Query Pipeline
+
+```mermaid
+flowchart LR
+    Q[User Query] --> R[Hybrid Retrieval from Schema Index]
+    R -->|FAISS + BM25 + RRF + Reranker| S[Schema Context]
+    S --> T[LLM SQL Generation]
+    T --> U[SQL Server Execution]
+    U --> V[LLM Answer Synthesis]
+    V --> W[Assistant Output]
+```
+
 ## 1) Setup
 
 ```bash
