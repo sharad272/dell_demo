@@ -5,7 +5,7 @@ This project builds an agentic RAG chat assistant for SQL Server:
 - Uses SQL Server schema metadata as retrieval context
 - Uses open-source embeddings (`sentence-transformers/all-MiniLM-L6-v2`)
 - Uses local vector database (Chroma)
-- Uses OpenAI OSS model through Hugging Face (`openai/gpt-oss-20b`)
+- Uses OpenAI OSS model through Hugging Face (`openai/gpt-oss-120b`)
 - Uses LangGraph pipeline to retrieve schema -> generate SQL -> execute -> answer
 - Includes retrieval evaluation: Precision@K, Recall@K, MRR
 
