@@ -119,6 +119,11 @@ def generate_sql(state: AgentState) -> AgentState:
         """You are an expert SQL Server assistant.
 Given user question and schema context, produce ONLY valid SQL query.
 Do not include explanations, markdown fences, or comments.
+Column-mapping rules:
+- User wording may be business-friendly, abbreviated, or non-exact; map it to the closest semantically correct table/column names from Schema Context.
+- Use ONLY table/column names that exist in Schema Context (do not invent names).
+- If multiple candidate columns are similar, choose the most context-appropriate one based on table purpose and user intent.
+- Prefer exact schema column names in final SQL even when user does not provide exact names.
 Domain guidance for STDBCOD:
 - Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
 - First validate table and column availability from Schema Context before choosing date columns.
