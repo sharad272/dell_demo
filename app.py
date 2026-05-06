@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from src.agent import ask_agent
 from src.schema_indexer import build_or_refresh_vectorstore
@@ -30,7 +31,7 @@ for msg in st.session_state.messages:
             with st.expander("SQL Results"):
                 rows = msg.get("sql_result", [])
                 if rows:
-                    st.dataframe(rows, use_container_width=True)
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True)
                 else:
                     st.info("No rows returned.")
 
@@ -64,6 +65,6 @@ if question:
             with st.expander("SQL Results"):
                 rows = assistant_msg.get("sql_result", [])
                 if rows:
-                    st.dataframe(rows, use_container_width=True)
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True)
                 else:
                     st.info("No rows returned.")

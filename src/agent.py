@@ -89,6 +89,9 @@ def generate_sql(state: AgentState) -> AgentState:
         """You are an expert SQL Server assistant.
 Given user question and schema context, produce ONLY valid SQL query.
 Do not include explanations, markdown fences, or comments.
+Domain guidance for STDBCOD:
+- For new defect lookups, prefer table `edm_cod_jsm_dly`.
+- For created/updated time filters, prioritize columns with `dice_` prefix (for example dice_created*, dice_updated*), based on actual schema availability.
 
 User Question:
 {question}

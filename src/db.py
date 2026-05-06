@@ -63,12 +63,10 @@ def get_engine() -> Engine:
 
 def run_sql(sql_query: str, limit: int | None = None) -> list[dict]:
     safe_query = sql_query.strip().rstrip(";")
-    if limit:
-        safe_query = f"SELECT TOP {limit} * FROM ({safe_query}) AS q"
 
     with get_engine().connect() as conn:
         result = conn.execute(text(safe_query))
         columns = list(result.keys())
-        rows = result.fetchall()
+        rows = result.fetchmany(limit) if limit else result.fetchall()
 
     return [dict(zip(columns, row)) for row in rows]
