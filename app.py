@@ -11,15 +11,22 @@ st.title("Agentic SQL RAG Assistant")
 with st.sidebar:
     st.subheader("Setup")
     if st.button("Refresh DB Schema Index"):
-        with st.spinner("Fetching DB schema and rebuilding vector index..."):
-            build_or_refresh_vectorstore()
-        st.success("Schema index refreshed.")
+        try:
+            with st.spinner("Fetching DB schema and rebuilding vector index..."):
+                build_or_refresh_vectorstore()
+            st.success("Schema index refreshed.")
+        except Exception as exc:
+            st.error(f"Failed to refresh schema index: {exc}")
 
 question = st.text_area("Ask anything about records in your SQL Server database:", height=120)
 
 if st.button("Ask Assistant", type="primary") and question.strip():
-    with st.spinner("Running LangGraph agent..."):
-        output = ask_agent(question)
+    try:
+        with st.spinner("Running LangGraph agent..."):
+            output = ask_agent(question)
+    except Exception as exc:
+        st.error(f"Assistant failed: {exc}")
+        st.stop()
 
     st.subheader("Answer")
     st.write(output.get("answer", ""))

@@ -1,17 +1,34 @@
 from urllib.parse import quote_plus
+import pyodbc
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from src.config import settings
 
 
+def _resolve_sqlserver_driver() -> str:
+    configured = (settings.db_driver or "").strip()
+    installed = [d.strip() for d in pyodbc.drivers()]
+    if configured and configured in installed:
+        return configured
+
+    sqlsrv_candidates = [d for d in installed if "SQL Server" in d]
+    if sqlsrv_candidates:
+        # Prefer the highest version driver when available.
+        return sorted(sqlsrv_candidates)[-1]
+
+    if configured:
+        return configured
+    return "ODBC Driver 18 for SQL Server"
+
+
 def _build_connection_string() -> str:
-    driver = quote_plus(settings.db_driver)
-    user = quote_plus(settings.db_username)
-    pwd = quote_plus(settings.db_password)
+    driver = _resolve_sqlserver_driver()
+    user = settings.db_username
+    pwd = settings.db_password
     host = settings.db_host
     port = settings.db_port
-    database = settings.db_database
+    database = settings.db_database or "master"
 
     if settings.db_jdbc_url.startswith("jdbc:sqlserver://"):
         jdbc_body = settings.db_jdbc_url.replace("jdbc:sqlserver://", "", 1)
@@ -21,9 +38,22 @@ def _build_connection_string() -> str:
         else:
             host = host_part
 
-    if database:
-        return f"mssql+pyodbc://{user}:{pwd}@{host}:{port}/{database}?driver={driver}&TrustServerCertificate=yes"
-    return f"mssql+pyodbc://{user}:{pwd}@{host}:{port}/master?driver={driver}&TrustServerCertificate=yes"
+    odbc_parts = [
+        f"DRIVER={{{driver}}}",
+        f"SERVER={host},{port}",
+        f"DATABASE={database}",
+        f"Encrypt={settings.db_encrypt}",
+        f"TrustServerCertificate={settings.db_trust_server_certificate}",
+        f"Connection Timeout={settings.db_connection_timeout}",
+    ]
+
+    if settings.db_trusted_connection.lower() == "yes":
+        odbc_parts.append("Trusted_Connection=yes")
+    else:
+        odbc_parts.append(f"UID={user}")
+        odbc_parts.append(f"PWD={pwd}")
+
+    return f"mssql+pyodbc:///?odbc_connect={quote_plus(';'.join(odbc_parts))}"
 
 
 def get_engine() -> Engine:
