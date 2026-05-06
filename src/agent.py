@@ -92,7 +92,7 @@ Do not include explanations, markdown fences, or comments.
 Domain guidance for STDBCOD:
 - For new defect lookups, prefer table `edm_cod_jsm_dly`.
 - Treat `dice_` audit columns as authoritative insert/update timestamps.
-- For recency, new defect detection, created/updated filters, and ordering, prioritize `dice_` timestamp columns (for example dice_created*, dice_updated*) over other date fields whenever available in schema.
+- For recency, new defect detection, created/updated filters, and ordering, prioritize `dice_` timestamp columns (for example dice_ins_crt_dt*, dice_ins_upd_dt, dice_ins_dt*) over other date fields whenever available in schema.
 
 User Question:
 {question}
