@@ -162,21 +162,34 @@ def retrieve_schema(state: AgentState) -> AgentState:
 def generate_sql(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_template(
         """You are an expert SQL Server assistant.
-Given user question and schema context, produce ONLY valid SQL query.
-Do not include explanations, markdown fences, or comments.
-Column-mapping rules:
-- User wording may be business-friendly, abbreviated, or non-exact; map it to the closest semantically correct table/column names from Schema Context.
-- Use ONLY table/column names that exist in Schema Context (do not invent names).
-- If multiple candidate columns are similar, choose the most context-appropriate one based on table purpose and user intent.
-- Prefer exact schema column names in final SQL even when user does not provide exact names.
-Domain guidance for STDBCOD:
-- Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
-- Treat `jsm_cod_*_master` and `jsm_cod_*_mapping` tables as reporting tables when user asks reporting/summary/reference-style questions.
-- First validate table and column availability from Schema Context before choosing date columns.
-- For creation logic in `edm_cod_jsm_dly`, use `edm_cod_jsm_dly.dice_ins_dt` as primary; if unavailable, fall back to `edm_cod_jsm_dly.dice_ins_crt_dt`.
-- For creation logic in other tables, use that table's creation audit column with priority: `dice_ins_crt_dt` first, then `dice_ins_dt` if `dice_ins_crt_dt` is unavailable.
-- For updation logic (updated filters and updated ordering), use `dice_ins_upd_st`.
-- Treat these `dice_` columns as authoritative over other date/timestamp fields when available in schema.
+Given a user question and schema context, return ONLY one executable SQL Server query.
+Hard constraints:
+- Output SQL only. No prose, no markdown, no comments.
+- Use ONLY tables/columns present in Schema Context. Never invent names.
+- Map non-exact business words in user query to the closest schema column/table by meaning.
+- Prefer simple, reliable SQL (avoid unnecessary CTEs/subqueries unless required).
+- Use SQL Server syntax only.
+
+Selection procedure (follow in order):
+1) Identify the intent (detail lookup, count, trend, latest records, reporting summary, etc.).
+2) Pick the primary table(s) from Schema Context that best match the intent.
+3) Validate every selected column exists in those tables.
+4) Build WHERE/GROUP BY/ORDER BY with intent-aligned columns and valid datatypes.
+
+Domain rules for STDBCOD:
+- COD issue tracking source table: `edm_cod_jsm_dly` (`issue_type` contains new COD order type info).
+- Reporting/reference-style asks should prefer `jsm_cod_*_master` and `jsm_cod_*_mapping` tables.
+- Creation time logic:
+  - In `edm_cod_jsm_dly`: prefer `dice_ins_dt`; if unavailable, use `dice_ins_crt_dt`.
+  - In other tables: prefer `dice_ins_crt_dt`; if unavailable, use `dice_ins_dt`.
+- Updation time logic: use `dice_ins_upd_st` when available.
+- Prefer `dice_` audit columns over non-audit date columns for created/updated/recency filters.
+
+Quality checks before finalizing SQL:
+- Ensure all referenced columns are present in Schema Context.
+- Ensure join keys are valid columns from both joined tables.
+- If user asks for latest/new/recent, apply ORDER BY on the correct creation/update audit column.
+- If user asks for top N, use TOP (N).
 
 User Question:
 {question}
