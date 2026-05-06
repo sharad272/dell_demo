@@ -30,12 +30,15 @@ if st.button("Ask Assistant", type="primary") and question.strip():
     st.subheader("Answer")
     st.write(output.get("answer", ""))
 
-    st.subheader("Generated SQL")
-    st.code(output.get("sql_query", ""), language="sql")
+    if output.get("route") == "DB_QUERY":
+        st.subheader("Generated SQL")
+        st.code(output.get("sql_query", ""), language="sql")
 
-    st.subheader("SQL Results")
-    rows = output.get("sql_result", [])
-    if rows:
-        st.dataframe(rows, use_container_width=True)
+        st.subheader("SQL Results")
+        rows = output.get("sql_result", [])
+        if rows:
+            st.dataframe(rows, use_container_width=True)
+        else:
+            st.info("No rows returned.")
     else:
-        st.info("No rows returned.")
+        st.caption("Handled as general LLM response (no DB tool call).")
