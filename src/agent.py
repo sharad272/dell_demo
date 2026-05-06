@@ -90,9 +90,10 @@ def generate_sql(state: AgentState) -> AgentState:
 Given user question and schema context, produce ONLY valid SQL query.
 Do not include explanations, markdown fences, or comments.
 Domain guidance for STDBCOD:
-- For new defect lookups, prefer table `edm_cod_jsm_dly`.
-- Treat `dice_` audit columns as authoritative insert/update timestamps.
-- For recency, new defect detection, created/updated filters, and ordering, prioritize `dice_` timestamp columns (for example dice_ins_crt_dt*, dice_ins_upd_dt, dice_ins_dt*) over other date fields whenever available in schema.
+- Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
+- For creation logic (created filters, created ordering, new record detection), use `dice_ins_crt_dt` and/or `dice_ins_dt`.
+- For updation logic (updated filters and updated ordering), use `dice_ins_upd_st`.
+- Treat these `dice_` columns as authoritative over other date/timestamp fields when available in schema.
 
 User Question:
 {question}
