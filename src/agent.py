@@ -199,6 +199,8 @@ Quality checks before finalizing SQL:
 - If user asks for latest/new/recent, apply ORDER BY on the correct creation/update audit column.
 - If user asks for top N, use TOP (N).
 
+Keep the Domain rules for STDBCOD as the highest priority.
+
 User Question:
 {question}
 
