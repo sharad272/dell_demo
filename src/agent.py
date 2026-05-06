@@ -163,7 +163,7 @@ def generate_sql(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_template(
         """You are an expert SQL Server assistant.
 Given a user question and schema context, return ONLY one executable SQL Server query.
-Instruction priority (highest to lowest):
+Instruction priority:
 1) Explicit domain rules in this prompt.
 2) Schema Context (actual available tables/columns).
 3) User wording and intent.
