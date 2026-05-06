@@ -189,7 +189,7 @@ Domain rules for STDBCOD:
 - Creation time logic:
   - In `edm_cod_jsm_dly`: prefer `dice_ins_dt`; if unavailable, use `dice_ins_crt_dt`.
   - In other tables: prefer `dice_ins_crt_dt`; if unavailable, use `dice_ins_dt`.
-- Updation time logic: use `dice_ins_upd_st` when available.
+- Updation time logic: use `dice_ins_upd_dt` when available.
 - Prefer `dice_` audit columns over non-audit date columns for created/updated/recency filters.
 - Do not override these explicit domain rules based on generic keyword matching.
 
