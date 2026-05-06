@@ -163,6 +163,13 @@ def generate_sql(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_template(
         """You are an expert SQL Server assistant.
 Given a user question and schema context, return ONLY one executable SQL Server query.
+Instruction priority (highest to lowest):
+1) Explicit domain rules in this prompt.
+2) Schema Context (actual available tables/columns).
+3) User wording and intent.
+4) General SQL best practices.
+If any rule conflicts with a lower-priority instruction, always follow the higher-priority rule.
+
 Hard constraints:
 - Output SQL only. No prose, no markdown, no comments.
 - Use ONLY tables/columns present in Schema Context. Never invent names.
@@ -184,6 +191,7 @@ Domain rules for STDBCOD:
   - In other tables: prefer `dice_ins_crt_dt`; if unavailable, use `dice_ins_dt`.
 - Updation time logic: use `dice_ins_upd_st` when available.
 - Prefer `dice_` audit columns over non-audit date columns for created/updated/recency filters.
+- Do not override these explicit domain rules based on generic keyword matching.
 
 Quality checks before finalizing SQL:
 - Ensure all referenced columns are present in Schema Context.
