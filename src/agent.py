@@ -1,3 +1,4 @@
+import re
 from typing import TypedDict, List
 
 from langgraph.graph import StateGraph, END
@@ -46,6 +47,31 @@ def _strip_sql_code_fence(text: str) -> str:
             lines = lines[:-1]
         cleaned = "\n".join(lines).strip()
     return cleaned
+
+
+def _build_keyword_query(user_query: str) -> str:
+    # Keep alphanumeric/underscore tokens and remove common stop words
+    # so BM25-style lexical matching gets stronger signal.
+    tokens = re.findall(r"[A-Za-z0-9_]+", user_query.lower())
+    stop_words = {
+        "the",
+        "a",
+        "an",
+        "for",
+        "to",
+        "of",
+        "in",
+        "on",
+        "with",
+        "from",
+        "show",
+        "get",
+        "find",
+        "give",
+        "me",
+    }
+    keywords = [t for t in tokens if t not in stop_words and len(t) > 1]
+    return " ".join(dict.fromkeys(keywords))
 
 
 def _execute_step_with_retry(state: AgentState, step_name: str, step_fn) -> AgentState:
@@ -109,8 +135,27 @@ User Question:
 
 def retrieve_schema(state: AgentState) -> AgentState:
     vectorstore = get_vectorstore()
-    docs = vectorstore.similarity_search(state["user_query"], k=8)
-    context = "\n\n".join(d.page_content for d in docs)
+    semantic_docs = vectorstore.similarity_search(state["user_query"], k=8)
+    keyword_query = _build_keyword_query(state["user_query"])
+    keyword_docs = vectorstore.similarity_search(keyword_query, k=8) if keyword_query else []
+
+    # Hybrid merge: keep semantic ranking first, then append lexical matches.
+    merged_docs = []
+    seen = set()
+    for doc in semantic_docs + keyword_docs:
+        key = (
+            doc.metadata.get("schema", ""),
+            doc.metadata.get("table", ""),
+            doc.metadata.get("column", ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        merged_docs.append(doc)
+        if len(merged_docs) >= 12:
+            break
+
+    context = "\n\n".join(d.page_content for d in merged_docs)
     return {**state, "schema_context": context}
 
 
@@ -126,6 +171,7 @@ Column-mapping rules:
 - Prefer exact schema column names in final SQL even when user does not provide exact names.
 Domain guidance for STDBCOD:
 - Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
+- Treat `jsm_cod_*_master` and `jsm_cod_*_mapping` tables as reporting tables when user asks reporting/summary/reference-style questions.
 - First validate table and column availability from Schema Context before choosing date columns.
 - For creation logic in `edm_cod_jsm_dly`, use `edm_cod_jsm_dly.dice_ins_dt` as primary; if unavailable, fall back to `edm_cod_jsm_dly.dice_ins_crt_dt`.
 - For creation logic in other tables, use that table's creation audit column with priority: `dice_ins_crt_dt` first, then `dice_ins_dt` if `dice_ins_crt_dt` is unavailable.
