@@ -16,6 +16,10 @@ class AgentState(TypedDict):
     sql_query: str
     sql_result: list[dict]
     answer: str
+    error: str
+    last_failed_step: str
+    retry_count: int
+    max_retries: int
 
 
 def _chat_llm():
@@ -42,6 +46,32 @@ def _strip_sql_code_fence(text: str) -> str:
             lines = lines[:-1]
         cleaned = "\n".join(lines).strip()
     return cleaned
+
+
+def _execute_step_with_retry(state: AgentState, step_name: str, step_fn) -> AgentState:
+    try:
+        updated_state = step_fn(state)
+        return {
+            **updated_state,
+            "error": "",
+            "last_failed_step": "",
+            "retry_count": 0,
+        }
+    except Exception as exc:
+        return {
+            **state,
+            "error": str(exc),
+            "last_failed_step": step_name,
+            "retry_count": state.get("retry_count", 0) + 1,
+        }
+
+
+def _retry_decision(state: AgentState) -> str:
+    if not state.get("error"):
+        return "SUCCESS"
+    if state.get("retry_count", 0) <= state.get("max_retries", 2):
+        return "RETRY"
+    return "FAIL"
 
 
 def decide_route(state: AgentState) -> AgentState:
@@ -139,29 +169,63 @@ SQL Results:
     return {**state, "answer": _as_text(answer)}
 
 
+def fail_with_error(state: AgentState) -> AgentState:
+    step = state.get("last_failed_step") or "unknown_step"
+    retries = state.get("retry_count", 0)
+    error = state.get("error", "Unknown error")
+    return {
+        **state,
+        "answer": f"Request failed at '{step}' after {retries} retries. Error: {error}",
+    }
+
+
 def build_graph():
     graph = StateGraph(AgentState)
-    graph.add_node("decide_route", decide_route)
-    graph.add_node("general_answer", general_answer)
-    graph.add_node("retrieve_schema", retrieve_schema)
-    graph.add_node("generate_sql", generate_sql)
-    graph.add_node("execute_sql", execute_sql)
-    graph.add_node("draft_answer", draft_answer)
+    graph.add_node("decide_route", lambda state: _execute_step_with_retry(state, "decide_route", decide_route))
+    graph.add_node("general_answer", lambda state: _execute_step_with_retry(state, "general_answer", general_answer))
+    graph.add_node("retrieve_schema", lambda state: _execute_step_with_retry(state, "retrieve_schema", retrieve_schema))
+    graph.add_node("generate_sql", lambda state: _execute_step_with_retry(state, "generate_sql", generate_sql))
+    graph.add_node("execute_sql", lambda state: _execute_step_with_retry(state, "execute_sql", execute_sql))
+    graph.add_node("draft_answer", lambda state: _execute_step_with_retry(state, "draft_answer", draft_answer))
+    graph.add_node("fail_with_error", fail_with_error)
 
     graph.set_entry_point("decide_route")
     graph.add_conditional_edges(
         "decide_route",
-        lambda state: state["route"],
+        lambda state: state["route"] if _retry_decision(state) == "SUCCESS" else _retry_decision(state),
         {
             "DB_QUERY": "retrieve_schema",
             "GENERAL_CHAT": "general_answer",
+            "RETRY": "decide_route",
+            "FAIL": "fail_with_error",
         },
     )
-    graph.add_edge("general_answer", END)
-    graph.add_edge("retrieve_schema", "generate_sql")
-    graph.add_edge("generate_sql", "execute_sql")
-    graph.add_edge("execute_sql", "draft_answer")
-    graph.add_edge("draft_answer", END)
+    graph.add_conditional_edges(
+        "general_answer",
+        _retry_decision,
+        {"SUCCESS": END, "RETRY": "general_answer", "FAIL": "fail_with_error"},
+    )
+    graph.add_conditional_edges(
+        "retrieve_schema",
+        _retry_decision,
+        {"SUCCESS": "generate_sql", "RETRY": "retrieve_schema", "FAIL": "fail_with_error"},
+    )
+    graph.add_conditional_edges(
+        "generate_sql",
+        _retry_decision,
+        {"SUCCESS": "execute_sql", "RETRY": "generate_sql", "FAIL": "fail_with_error"},
+    )
+    graph.add_conditional_edges(
+        "execute_sql",
+        _retry_decision,
+        {"SUCCESS": "draft_answer", "RETRY": "execute_sql", "FAIL": "fail_with_error"},
+    )
+    graph.add_conditional_edges(
+        "draft_answer",
+        _retry_decision,
+        {"SUCCESS": END, "RETRY": "draft_answer", "FAIL": "fail_with_error"},
+    )
+    graph.add_edge("fail_with_error", END)
 
     return graph.compile()
 
@@ -175,5 +239,9 @@ def ask_agent(question: str) -> dict:
         "sql_query": "",
         "sql_result": [],
         "answer": "",
+        "error": "",
+        "last_failed_step": "",
+        "retry_count": 0,
+        "max_retries": 2,
     }
     return app.invoke(initial_state)
