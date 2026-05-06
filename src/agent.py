@@ -121,9 +121,9 @@ Given user question and schema context, produce ONLY valid SQL query.
 Do not include explanations, markdown fences, or comments.
 Domain guidance for STDBCOD:
 - Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
-- First validate column availability from Schema Context for `edm_cod_jsm_dly`.
-- For creation logic (created filters, created ordering, new record detection), use `edm_cod_jsm_dly.dice_ins_dt` as the primary creation column.
-- Only if `dice_ins_dt` is not available in Schema Context, fall back to `edm_cod_jsm_dly.dice_ins_crt_dt`.
+- First validate table and column availability from Schema Context before choosing date columns.
+- For creation logic in `edm_cod_jsm_dly`, use `edm_cod_jsm_dly.dice_ins_dt` as primary; if unavailable, fall back to `edm_cod_jsm_dly.dice_ins_crt_dt`.
+- For creation logic in other tables, use that table's creation audit column with priority: `dice_ins_crt_dt` first, then `dice_ins_dt` if `dice_ins_crt_dt` is unavailable.
 - For updation logic (updated filters and updated ordering), use `dice_ins_upd_st`.
 - Treat these `dice_` columns as authoritative over other date/timestamp fields when available in schema.
 

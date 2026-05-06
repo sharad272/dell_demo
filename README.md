@@ -7,7 +7,7 @@ This project builds an agentic SQL assistant for SQL Server:
 - Direct FAISS vector index (`faiss`) with local persistence
 - Hybrid retrieval: FAISS dense + BM25 lexical + RRF fusion
 - Bi-encoder reranking before passing context to SQL generation
-- LangGraph pipeline: retrieve schema -> generate SQL -> execute -> answer
+- LangGraph pipeline with routing, retries, and failure fallback
 - Retrieval evaluation: Precision@K, Recall@K, MRR
 
 ## Architecture Graph
@@ -15,13 +15,25 @@ This project builds an agentic SQL assistant for SQL Server:
 ```mermaid
 flowchart TD
     A[User Message from Streamlit Chat UI] --> B[LangGraph: decide_route]
-    B -->|GENERAL_CHAT| C[general_answer LLM]
+    B -->|GENERAL_CHAT| C[general_answer]
     B -->|DB_QUERY| D[retrieve_schema]
-    D --> E[generate_sql]
-    E --> F[execute_sql]
-    F --> G[draft_answer]
-    C --> H[Return Assistant Response]
-    G --> H
+    B -->|FAIL| X[fail_with_error]
+    C -->|SUCCESS| H[Return Assistant Response]
+    C -->|RETRY| C
+    C -->|FAIL| X
+    D -->|SUCCESS| E[generate_sql]
+    D -->|RETRY| D
+    D -->|FAIL| X
+    E -->|SUCCESS| F[execute_sql]
+    E -->|RETRY| E
+    E -->|FAIL| X
+    F -->|SUCCESS| G[draft_answer]
+    F -->|RETRY| F
+    F -->|FAIL| X
+    G -->|SUCCESS| H
+    G -->|RETRY| G
+    G -->|FAIL| X
+    X --> H
     H --> I[Render in chat_message]
     G --> J[Show SQL + Results expanders]
 ```
@@ -32,11 +44,29 @@ flowchart TD
 flowchart LR
     Q[User Query] --> R[Hybrid Retrieval from Schema Index]
     R -->|FAISS + BM25 + RRF + Reranker| S[Schema Context]
-    S --> T[LLM SQL Generation]
+    S --> T[LLM SQL Generation (schema-aware rules)]
     T --> U[SQL Server Execution]
     U --> V[LLM Answer Synthesis]
     V --> W[Assistant Output]
 ```
+
+## SQL generation behavior
+
+- Router first classifies user request into `DB_QUERY` or `GENERAL_CHAT`.
+- SQL is generated from the retrieved schema context and user question only.
+- STDBCOD domain rules currently applied in prompt:
+  - COD order issue tracking source table is `edm_cod_jsm_dly` (`issue_type` driven).
+  - For creation logic in `edm_cod_jsm_dly`, priority is `dice_ins_dt`, then `dice_ins_crt_dt` if `dice_ins_dt` is unavailable.
+  - For creation logic in other tables, priority is `dice_ins_crt_dt`, then `dice_ins_dt`.
+  - For updation logic, use `dice_ins_upd_st`.
+  - These `dice_` audit columns are preferred over other timestamp/date fields when present.
+
+## Retry and failure behavior
+
+- Each graph step is wrapped in retry-aware execution.
+- On step failure, the same step is retried using conditional edges.
+- Default retry limit is `max_retries = 2` (tracked in agent state).
+- If retries are exhausted, the flow goes to `fail_with_error` and returns a clear failure message including failed step and error text.
 
 ## 1) Setup
 
