@@ -1,13 +1,14 @@
 # Agentic SQL RAG Assistant (LangGraph + Streamlit)
 
-This project builds an agentic RAG chat assistant for SQL Server:
+This project builds an agentic SQL chat assistant for SQL Server:
 
-- Uses SQL Server schema metadata as retrieval context
-- Uses open-source embeddings (`sentence-transformers/all-MiniLM-L6-v2`)
-- Uses local vector database (Chroma)
-- Uses OpenAI OSS model through Hugging Face (`openai/gpt-oss-120b`)
-- Uses LangGraph pipeline to retrieve schema -> generate SQL -> execute -> answer
-- Includes retrieval evaluation: Precision@K, Recall@K, MRR
+- Schema-aware RAG over DB metadata (`INFORMATION_SCHEMA` + extended properties)
+- Direct open-source embeddings via `SentenceTransformer`
+- Direct FAISS vector index (`faiss`) with local persistence
+- Hybrid retrieval: FAISS dense + BM25 lexical + RRF fusion
+- Bi-encoder reranking before passing context to SQL generation
+- LangGraph pipeline: retrieve schema -> generate SQL -> execute -> answer
+- Retrieval evaluation: Precision@K, Recall@K, MRR
 
 ## 1) Setup
 
@@ -17,29 +18,53 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 2) Environment variables
+## 2) Configure environment
 
-Credentials and model settings are loaded from `.env` using `os.getenv` in `src/config.py`.
+Create `.env` (or copy from `.env.example`) and set values read by `os.getenv` in `src/config.py`.
 
-## 3) Build schema vector index
+Key variables:
+
+- `DB_TYPE`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`
+- `DB_DRIVER`, `DB_JDBC_URL`, `DB_JDBC_DRIVER`
+- `HF_MODEL_ID`, `HUGGINGFACEHUB_API_TOKEN`
+- `EMBEDDING_MODEL`, `RERANKER_MODEL`
+- `HYBRID_CANDIDATE_MULTIPLIER`, `RRF_K`, `RERANKER_CANDIDATE_MULTIPLIER`
+- `VECTOR_DB_DIR`, `MAX_SQL_ROWS`
+- Optional tracing: `LANGSMITH_TRACING`, `LANGSMITH_ENDPOINT`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`
+
+## 3) Build or refresh schema index
 
 ```bash
 python build_schema_index.py
 ```
 
-## 4) Run evaluation
+This fetches SQL Server schema metadata and writes the FAISS index to `VECTOR_DB_DIR`.
+
+## 4) Run retrieval evaluation
 
 ```bash
 python -m eval.evaluate_retrieval
 ```
 
-## 5) Start Streamlit app
+Prints:
+
+- `Precision@K`
+- `Recall@K`
+- `MRR`
+
+## 5) Start Streamlit frontend
 
 ```bash
 streamlit run app.py
 ```
 
-## Notes
+In the app:
 
-- For Hugging Face hosted inference, set `HUGGINGFACEHUB_API_TOKEN` in your environment if required.
-- If DB connection fails, verify ODBC driver and network/VPN access.
+1. Click **Refresh DB Schema Index** (optional if already built)
+2. Ask a question about records/tables
+3. Review generated SQL, result rows, and final answer
+
+## Run notes
+
+- Prefer module-style runs from repo root when possible.
+- If DB connectivity fails, verify network/VPN access and SQL Server ODBC driver installation.

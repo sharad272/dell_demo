@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 import pickle
+import sys
 from typing import List
 
 import faiss
@@ -10,8 +11,13 @@ from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
-from src.config import settings
-from src.db import get_engine
+if __package__ is None or __package__ == "":
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from src.config import settings
+    from src.db import get_engine
+else:
+    from src.config import settings
+    from src.db import get_engine
 
 
 class LocalSentenceTransformerEmbeddings:
