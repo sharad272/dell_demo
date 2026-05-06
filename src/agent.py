@@ -121,7 +121,7 @@ Given user question and schema context, produce ONLY valid SQL query.
 Do not include explanations, markdown fences, or comments.
 Domain guidance for STDBCOD:
 - Source table for COD order issue tracking is `edm_cod_jsm_dly` (new COD order is loaded via the `issue_type` column).
-- For creation logic (created filters, created ordering, new record detection), use `dice_ins_crt_dt` and/or `dice_ins_dt`.
+- For creation logic (created filters, created ordering, new record detection), use either `dice_ins_crt_dt` or `dice_ins_dt` (whichever exists/is most appropriate in schema).
 - For updation logic (updated filters and updated ordering), use `dice_ins_upd_st`.
 - Treat these `dice_` columns as authoritative over other date/timestamp fields when available in schema.
 
