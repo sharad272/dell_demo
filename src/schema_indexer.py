@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy import text
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
 
 from src.config import settings
@@ -69,7 +69,7 @@ def fetch_schema_chunks() -> List[SchemaChunk]:
     return chunks
 
 
-def build_or_refresh_vectorstore() -> Chroma:
+def build_or_refresh_vectorstore() -> FAISS:
     chunks = fetch_schema_chunks()
     docs = []
     for c in chunks:
@@ -93,28 +93,15 @@ def build_or_refresh_vectorstore() -> Chroma:
         )
 
     embeddings = LocalSentenceTransformerEmbeddings(model_name=settings.embedding_model)
-    vectorstore = Chroma(
-        collection_name="sql_schema",
-        embedding_function=embeddings,
-        persist_directory=settings.vector_db_dir,
-    )
-    try:
-        vectorstore.delete_collection()
-    except Exception:
-        pass
-    vectorstore = Chroma(
-        collection_name="sql_schema",
-        embedding_function=embeddings,
-        persist_directory=settings.vector_db_dir,
-    )
-    vectorstore.add_documents(docs)
+    vectorstore = FAISS.from_documents(docs, embeddings)
+    vectorstore.save_local(settings.vector_db_dir)
     return vectorstore
 
 
-def get_vectorstore() -> Chroma:
+def get_vectorstore() -> FAISS:
     embeddings = LocalSentenceTransformerEmbeddings(model_name=settings.embedding_model)
-    return Chroma(
-        collection_name="sql_schema",
-        embedding_function=embeddings,
-        persist_directory=settings.vector_db_dir,
+    return FAISS.load_local(
+        settings.vector_db_dir,
+        embeddings,
+        allow_dangerous_deserialization=True,
     )

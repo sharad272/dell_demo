@@ -19,7 +19,7 @@ class Settings:
     db_jdbc_driver: str = os.getenv("DB_JDBC_DRIVER", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
     hf_model_id: str = os.getenv("HF_MODEL_ID", "openai/gpt-oss-20b")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-    vector_db_dir: str = os.getenv("VECTOR_DB_DIR", "./chroma_db")
+    vector_db_dir: str = os.getenv("VECTOR_DB_DIR", "./faiss_index")
     max_sql_rows: int = int(os.getenv("MAX_SQL_ROWS", "200"))
 
 
