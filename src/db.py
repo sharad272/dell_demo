@@ -19,7 +19,7 @@ def _resolve_sqlserver_driver() -> str:
 
     if configured:
         return configured
-    return "ODBC Driver 18 for SQL Server"
+    return "ODBC Driver 17 for SQL Server"
 
 
 def _build_connection_string() -> str:
