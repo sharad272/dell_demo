@@ -46,10 +46,10 @@ def run_eval():
         EvalExample(query="Find sales revenue by region", relevant_keywords=["sales", "revenue", "region"]),
     ]
 
-    k = 5
+    k = 3
     p_scores, r_scores, mrr_scores = [], [], []
     for ex in examples:
-        docs = vectorstore.similarity_search(ex.query, k=10)
+        docs = vectorstore.similarity_search(ex.query, k=3)
         texts = [d.page_content for d in docs]
         p_scores.append(precision_at_k(texts, ex.relevant_keywords, k))
         r_scores.append(recall_at_k(texts, ex.relevant_keywords, k))

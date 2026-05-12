@@ -148,19 +148,27 @@ class SchemaChunk:
 
 def fetch_schema_chunks() -> List[SchemaChunk]:
     query = """
-    SELECT
-        c.TABLE_SCHEMA,
-        c.TABLE_NAME,
-        c.COLUMN_NAME,
-        c.DATA_TYPE,
-        c.IS_NULLABLE,
-        CAST(ep.value AS NVARCHAR(4000)) AS COLUMN_DESCRIPTION
-    FROM INFORMATION_SCHEMA.COLUMNS c
-    LEFT JOIN sys.extended_properties ep
-      ON ep.major_id = OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME)
-     AND ep.minor_id = COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'ColumnId')
-     AND ep.name = 'MS_Description'
-    ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
+  
+SELECT
+    c.TABLE_SCHEMA,
+    c.TABLE_NAME,
+    c.COLUMN_NAME,
+    c.DATA_TYPE,
+    c.IS_NULLABLE,
+    CAST(ep.value AS NVARCHAR(4000)) AS COLUMN_DESCRIPTION
+FROM INFORMATION_SCHEMA.COLUMNS c
+LEFT JOIN sys.extended_properties ep
+    ON ep.major_id = OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME)
+    AND ep.minor_id = COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'ColumnId')
+    AND ep.name = 'MS_Description'
+WHERE c.TABLE_NAME NOT LIKE '%tmp%'
+  AND c.TABLE_NAME NOT LIKE '%temp%'
+  AND c.TABLE_NAME NOT LIKE '%bkp%'
+  AND c.TABLE_NAME NOT LIKE '%backup%'
+  AND c.TABLE_NAME NOT LIKE '%back%'
+   AND c.TABLE_NAME NOT LIKE '%test%'
+ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
+
     """
 
     with get_engine().connect() as conn:

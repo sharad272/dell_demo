@@ -25,10 +25,7 @@ class AgentState(TypedDict):
 
 def _chat_llm():
     llm = HuggingFaceEndpoint(
-        repo_id=settings.hf_model_id,
-        task="text-generation",
-        max_new_tokens=512,
-        temperature=0.1,
+        repo_id=settings.hf_model_id
     )
     return ChatHuggingFace(llm=llm)
 
@@ -95,7 +92,7 @@ def _execute_step_with_retry(state: AgentState, step_name: str, step_fn) -> Agen
 def _retry_decision(state: AgentState) -> str:
     if not state.get("error"):
         return "SUCCESS"
-    if state.get("retry_count", 0) <= state.get("max_retries", 2):
+    if state.get("retry_count", 0) <= state.get("max_retries", 1):
         return "RETRY"
     return "FAIL"
 
@@ -135,9 +132,9 @@ User Question:
 
 def retrieve_schema(state: AgentState) -> AgentState:
     vectorstore = get_vectorstore()
-    semantic_docs = vectorstore.similarity_search(state["user_query"], k=8)
+    semantic_docs = vectorstore.similarity_search(state["user_query"], k=10)
     keyword_query = _build_keyword_query(state["user_query"])
-    keyword_docs = vectorstore.similarity_search(keyword_query, k=8) if keyword_query else []
+    keyword_docs = vectorstore.similarity_search(keyword_query, k=10) if keyword_query else []
 
     # Hybrid merge: keep semantic ranking first, then append lexical matches.
     merged_docs = []
@@ -161,20 +158,23 @@ def retrieve_schema(state: AgentState) -> AgentState:
 
 def generate_sql(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_template(
-        """You are an expert SQL Server assistant.
+        """You are an expierenced expert SQL Server data analyst with over 15+ yrs of expierence.
 Given a user question and schema context, return ONLY one executable SQL Server query.
 Instruction priority:
 1) Explicit domain rules in this prompt.
-2) Schema Context (actual available tables/columns).
-3) User wording and intent.
-4) General SQL best practices.
+2) MOST IMPORTANT 2 BELOW RULES:
+  - For "COD Order" type defects table always look from the table which is the source table: `edm_cod_jsm_dly`.
+  - If column `issue_key` is available in any table, then ALWAYS use `issue_key` column as an unique identifier..
+
+3) Schema Context (actual available tables/columns).
+4) User wording and intent.
+5) General SQL best practices.
 If any rule conflicts with a lower-priority instruction, always follow the higher-priority rule.
 
 Hard constraints:
 - Output SQL only. No prose, no markdown, no comments.
 - Use ONLY tables/columns present in Schema Context. Never invent names.
 - Map non-exact business words in user query to the closest schema column/table by meaning.
-- Prefer simple, reliable SQL (avoid unnecessary CTEs/subqueries unless required).
 - Use SQL Server syntax only.
 
 Selection procedure (follow in order):
@@ -183,23 +183,23 @@ Selection procedure (follow in order):
 3) Validate every selected column exists in those tables.
 4) Build WHERE/GROUP BY/ORDER BY with intent-aligned columns and valid datatypes.
 
-Domain rules for STDBCOD:
-- COD issue tracking source table: `edm_cod_jsm_dly` (`issue_type` contains new COD order type info).
+Domain/ Prerequiste rules for STDBCOD database:
+- Creation of "COD Order" defects logic:
+  - In `edm_cod_jsm_dly`: prefer column `dice_ins_dt`; if unavailable, use column `dice_ins_crt_dt`.
+  - In other tables: prefer column `dice_ins_crt_dt`; if unavailable, use column `dice_ins_dt`.
 - Reporting/reference-style asks should prefer `jsm_cod_*_master` and `jsm_cod_*_mapping` tables.
-- Creation time logic:
-  - In `edm_cod_jsm_dly`: prefer `dice_ins_dt`; if unavailable, use `dice_ins_crt_dt`.
-  - In other tables: prefer `dice_ins_crt_dt`; if unavailable, use `dice_ins_dt`.
 - Updation time logic: use `dice_ins_upd_dt` when available.
-- Prefer `dice_` audit columns over non-audit date columns for created/updated/recency filters.
+- Take `dice_` audit columns only over non-audit date columns for created/updated/recency filters.
 - Do not override these explicit domain rules based on generic keyword matching.
 
 Quality checks before finalizing SQL:
+- Ensure to follow the explicitly written instructions.
 - Ensure all referenced columns are present in Schema Context.
 - Ensure join keys are valid columns from both joined tables.
 - If user asks for latest/new/recent, apply ORDER BY on the correct creation/update audit column.
 - If user asks for top N, use TOP (N).
 
-Keep the Domain rules for STDBCOD as the highest priority.
+Ignore the tables with either prefixes or suffixes: tmp.*, bkp.*.
 
 User Question:
 {question}
@@ -220,7 +220,7 @@ def execute_sql(state: AgentState) -> AgentState:
 
 def draft_answer(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_template(
-        """You are a helpful data assistant.
+        """You are an experienced SQL data analyst (with over 15+ yrs of experience).
 Use user question and SQL results to produce a concise answer.
 If results are empty, clearly say no records found.
 
@@ -318,6 +318,6 @@ def ask_agent(question: str) -> dict:
         "error": "",
         "last_failed_step": "",
         "retry_count": 0,
-        "max_retries": 2,
+        "max_retries": 1,
     }
     return app.invoke(initial_state)
